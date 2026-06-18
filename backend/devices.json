@@ -1,0 +1,8 @@
+{
+    "did:sol:704bca474694": {
+        "name": "ESP32 Temp Sensor",
+        "type": "temperature",
+        "location": "NIELIT Lab",
+        "status": "verified"
+    }
+}

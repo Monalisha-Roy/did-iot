@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+*/node_modules/
+package-lock.json
+yarn.lock
+
+# Build artifacts
+*/target/
+dist/
+build/
+*.o
+*.a
+*.so
+*.pyc
+__pycache__/
+
+# Cargo/Rust
+Cargo.lock
+*/target/
+*/Cargo.lock
+
+# Python
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test ledger (Solana)
+test-ledger/
+*/test-ledger/
+
+# Credentials
+*_keypair.json
+device_key.bin
+*.key
+
+# Next.js
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
