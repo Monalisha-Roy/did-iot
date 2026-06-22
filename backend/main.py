@@ -9,8 +9,7 @@ import time
 from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
 from pydantic import BaseModel
-from solana_client import generate_did, register_device_onchain, verify_device_onchain, revoke_device_onchain
-
+from solana_client import generate_did, register_device_onchain, verify_device_onchain, revoke_device_onchain, get_device_onchain, get_all_devices_onchain
 load_dotenv()
 
 PINATA_JWT = os.getenv("PINATA_JWT")
@@ -29,34 +28,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connected WebSocket clients
 ws_clients = []
 
-# In-memory device registry
-import os
-
-DEVICES_FILE = "devices.json"
-
-def load_devices():
-    if os.path.exists(DEVICES_FILE):
-        with open(DEVICES_FILE) as f:
-            return json.load(f)
-    return {}
-
-def save_devices():
-    with open(DEVICES_FILE, "w") as f:
-        json.dump(devices, f)
-
-devices = load_devices()
-
-# ── Pydantic models ───────────────────────────────────────
 class RegisterRequest(BaseModel):
-    name: str
     device_type: str
     location: str
-    mac: str
+    public_key: str
 
-# ── Broadcast to WebSocket clients ────────────────────────
 async def broadcast(data: dict):
     for ws in ws_clients.copy():
         try:
@@ -64,7 +42,6 @@ async def broadcast(data: dict):
         except:
             ws_clients.remove(ws)
 
-# ── Upload data to Pinata IPFS ────────────────────────────
 async def upload_to_pinata(payload: dict) -> str:
     headers = {
         "Authorization": f"Bearer {PINATA_JWT}",
@@ -88,59 +65,44 @@ async def upload_to_pinata(payload: dict) -> str:
         print(f"[IPFS] Uploaded to Pinata. CID: {cid}")
         return cid
 
-# ── Process incoming MQTT message ─────────────────────────
 async def process_message_async(payload_str: str):
     try:
         msg = json.loads(payload_str)
 
-        # Handle signed message format from ESP32
         if "payload" in msg:
             payload = msg["payload"]
-            signature = msg.get("signature")
         else:
             payload = msg
-            signature = None
 
         did = payload.get("did")
         value = payload.get("value")
         unit = payload.get("unit", "")
         timestamp = payload.get("timestamp", int(time.time()))
 
-        if did not in devices:
-            print(f"[REJECTED] Unknown DID: {did}")
+        # Fetch device status directly from Solana
+        chain_data = await get_device_onchain(did)
+
+        if chain_data is None:
+            print(f"[REJECTED] DID not found on Solana: {did}")
             return
 
-        device = devices[did]
-
-        if device["status"] != "verified":
-            print(f"[REJECTED] Device not verified: {did} (status: {device['status']})")
-            await broadcast({
-                "did": did,
-                "device_name": device["name"],
-                "device_type": device["type"],
-                "value": f"{value} {unit}".strip(),
-                "timestamp": timestamp,
-                "hash": "rejected",
-                "status": device["status"],
-                "cid": None,
-            })
+        if chain_data["status"] != "verified":
+            print(f"[REJECTED] Device not verified on-chain: {did} (status: {chain_data['status']})")
             return
 
         pinata_payload = {
             "did": did,
-            "device_name": device["name"],
-            "device_type": device["type"],
+            "device_type": chain_data["type"],
             "value": value,
             "unit": unit,
             "timestamp": timestamp,
-            "location": device["location"],
+            "location": chain_data["location"],
         }
         cid = await upload_to_pinata(pinata_payload)
 
         packet = {
             "did": did,
-            "device_name": device["name"],
-            "device_type": device["type"],
+            "device_type": chain_data["type"],
             "value": f"{value} {unit}".strip(),
             "timestamp": timestamp,
             "hash": hex(abs(hash(payload_str)))[:10],
@@ -149,7 +111,7 @@ async def process_message_async(payload_str: str):
             "ipfs_url": f"https://gateway.pinata.cloud/ipfs/{cid}" if cid else None,
         }
 
-        print(f"[ACCEPTED] {device['name']}: {packet['value']} | CID: {cid}")
+        print(f"[ACCEPTED] {did}: {packet['value']} | CID: {cid}")
         await broadcast(packet)
 
     except Exception as e:
@@ -158,7 +120,6 @@ async def process_message_async(payload_str: str):
 def process_message(payload_str: str):
     asyncio.run(process_message_async(payload_str))
 
-# ── MQTT setup ────────────────────────────────────────────
 mqtt_client = mqtt.Client()
 
 def on_connect(client, userdata, flags, rc):
@@ -173,59 +134,34 @@ mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
 mqtt_client.loop_start()
 
-# ── REST endpoints ────────────────────────────────────────
 @app.get("/devices")
-def get_devices():
-    return [
-        {"did": did, **info}
-        for did, info in devices.items()
-    ]
+async def get_devices():
+    try:
+        return await get_all_devices_onchain()
+    except Exception as e:
+        print(f"[ERROR] get_devices: {e}")
+        return []
 
 @app.post("/register")
 async def register_device(req: RegisterRequest):
     try:
-        did = generate_did(req.mac)
+        did = f"did:sol:{req.public_key}"
         pda = await register_device_onchain(
             did=did,
-            public_key_hex=req.mac.replace(":", ""),
+            public_key_hex=req.public_key,
             device_type=req.device_type,
             location=req.location
         )
-        devices[did] = {
-            "name": req.name,
-            "type": req.device_type,
-            "location": req.location,
-            "status": "pending",
-            "pda": pda
-        }
-        print(f"[REGISTERED] {req.name} → {did}")
+        print(f"[REGISTERED] {did}")
         return {"success": True, "did": did, "pda": pda, "status": "pending"}
     except Exception as e:
         print(f"[ERROR] Registration failed: {e}")
         return {"success": False, "error": str(e)}
 
-@app.post("/revoke/{did}")
-def revoke_device(did: str):
-    if did in devices:
-        devices[did]["status"] = "revoked"
-        print(f"[REVOKED] {did}")
-        return {"message": f"Device {did} revoked"}
-    return {"error": "Device not found"}
-
-@app.post("/verify/{did}")
-def verify_device(did: str):
-    if did in devices:
-        devices[did]["status"] = "verified"
-        print(f"[VERIFIED] {did}")
-        return {"message": f"Device {did} verified"}
-    return {"error": "Device not found"}
-
 @app.post("/verify-onchain/{did}")
 async def verify_device_onchain_endpoint(did: str):
     try:
         await verify_device_onchain(did)
-        if did in devices:
-            devices[did]["status"] = "verified"
         print(f"[VERIFIED ON-CHAIN] {did}")
         return {"success": True, "did": did, "status": "verified"}
     except Exception as e:
@@ -235,8 +171,6 @@ async def verify_device_onchain_endpoint(did: str):
 async def revoke_device_onchain_endpoint(did: str):
     try:
         await revoke_device_onchain(did)
-        if did in devices:
-            devices[did]["status"] = "revoked"
         print(f"[REVOKED ON-CHAIN] {did}")
         return {"success": True, "did": did, "status": "revoked"}
     except Exception as e:
@@ -246,7 +180,6 @@ async def revoke_device_onchain_endpoint(did: str):
 def health():
     return {"status": "ok", "program_id": PROGRAM_ID, "rpc": SOLANA_RPC}
 
-# ── WebSocket ─────────────────────────────────────────────
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()

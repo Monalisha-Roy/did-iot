@@ -10,10 +10,9 @@ from ed25519 import keypair_from_seed, sign
 # ── Config ────────────────────────────────────────────────
 WIFI_SSID = "BSNL_FIBER_NIELIT"
 WIFI_PASS = "Kokrajhar"
-MQTT_BROKER = "192.168.1.100"
+MQTT_BROKER = "192.168.1.168"
 MQTT_PORT = 1883
 MQTT_TOPIC = b"iot/data"
-DEVICE_DID = "did:sol:704bca474694"
 KEY_FILE = "device_key.bin"
 
 # ── DHT11 setup ───────────────────────────────────────────
@@ -54,6 +53,8 @@ def connect_wifi():
 def main():
     private_key, public_key = get_or_create_keypair()
     pub_hex = ''.join('{:02x}'.format(b) for b in public_key)
+    DEVICE_DID = f"did:sol:{pub_hex}"
+    print("DID:", DEVICE_DID)
     print("Public key:", pub_hex)
 
     if not connect_wifi():
@@ -70,7 +71,6 @@ def main():
             hum = sensor.humidity()
             timestamp = time.time()
 
-            # Build payload
             payload = {
                 "did": DEVICE_DID,
                 "value": temp,
@@ -81,11 +81,9 @@ def main():
             }
             payload_str = json.dumps(payload)
 
-            # Sign the payload
             sig = sign(private_key, payload_str.encode())
             sig_hex = ''.join('{:02x}'.format(b) for b in sig)
 
-            # Full message with signature
             message = json.dumps({
                 "payload": payload,
                 "signature": sig_hex

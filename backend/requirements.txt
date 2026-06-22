@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+paho-mqtt
+pydantic
+solana
+solders
+base58

@@ -1,0 +1,302 @@
+{
+  "address": "8NXipim1BqhH9rKdsqHsYj7dh1YLLjYrt9vpkxL8rJEN",
+  "metadata": {
+    "name": "did_registry",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "register_device",
+      "discriminator": [
+        210,
+        151,
+        56,
+        68,
+        22,
+        158,
+        90,
+        193
+      ],
+      "accounts": [
+        {
+          "name": "device",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "did",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "public_key_hex",
+          "type": "string"
+        },
+        {
+          "name": "device_type",
+          "type": "string"
+        },
+        {
+          "name": "location",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "revoke_device",
+      "discriminator": [
+        144,
+        73,
+        80,
+        42,
+        245,
+        168,
+        5,
+        211
+      ],
+      "accounts": [
+        {
+          "name": "device",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "store_data_cid",
+      "discriminator": [
+        36,
+        8,
+        185,
+        123,
+        181,
+        182,
+        229,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "data_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  97,
+                  116,
+                  97
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "device"
+              },
+              {
+                "kind": "arg",
+                "path": "timestamp"
+              }
+            ]
+          }
+        },
+        {
+          "name": "device",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "cid",
+          "type": "string"
+        },
+        {
+          "name": "timestamp",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "verify_device",
+      "discriminator": [
+        103,
+        113,
+        98,
+        245,
+        141,
+        231,
+        98,
+        244
+      ],
+      "accounts": [
+        {
+          "name": "device",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "DataRecord",
+      "discriminator": [
+        51,
+        30,
+        73,
+        146,
+        52,
+        76,
+        80,
+        152
+      ]
+    },
+    {
+      "name": "DeviceAccount",
+      "discriminator": [
+        103,
+        244,
+        245,
+        87,
+        0,
+        208,
+        80,
+        103
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "You are not authorized to perform this action"
+    }
+  ],
+  "types": [
+    {
+      "name": "DataRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "device",
+            "type": "pubkey"
+          },
+          {
+            "name": "did",
+            "type": "string"
+          },
+          {
+            "name": "cid",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DeviceAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "did",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "public_key_hex",
+            "type": "string"
+          },
+          {
+            "name": "device_type",
+            "type": "string"
+          },
+          {
+            "name": "location",
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": {
+                "name": "DeviceStatus"
+              }
+            }
+          },
+          {
+            "name": "registered_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DeviceStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pending"
+          },
+          {
+            "name": "Verified"
+          },
+          {
+            "name": "Revoked"
+          }
+        ]
+      }
+    }
+  ]
+}

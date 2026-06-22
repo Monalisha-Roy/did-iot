@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("B3gYy9xnAUiU3qW9seVVUgZ6kSWzz7ePibCSXbsJK9eq");
+declare_id!("8NXipim1BqhH9rKdsqHsYj7dh1YLLjYrt9vpkxL8rJEN");
 
 #[program]
 pub mod did_registry {
@@ -10,6 +10,7 @@ pub mod did_registry {
     pub fn register_device(
         ctx: Context<RegisterDevice>,
         did: String,
+        name: String,
         public_key_hex: String,
         device_type: String,
         location: String,
@@ -17,6 +18,7 @@ pub mod did_registry {
         let device = &mut ctx.accounts.device;
         device.owner = ctx.accounts.authority.key();
         device.did = did;
+        device.name = name;
         device.public_key_hex = public_key_hex;
         device.device_type = device_type;
         device.location = location;
@@ -77,7 +79,7 @@ pub struct RegisterDevice<'info> {
         init,
         payer = authority,
         space = DeviceAccount::LEN,
-        seeds = [b"device", did.as_bytes()],
+        seeds = [b"device", &did.as_bytes()[..did.as_bytes().len().min(32)]],
         bump
     )]
     pub device: Account<'info, DeviceAccount>,
@@ -117,6 +119,7 @@ pub struct StoreData<'info> {
 pub struct DeviceAccount {
     pub owner: Pubkey,
     pub did: String,
+    pub name: String,
     pub public_key_hex: String,
     pub device_type: String,
     pub location: String,
@@ -129,6 +132,7 @@ impl DeviceAccount {
     pub const LEN: usize = 8       // discriminator
         + 32                        // owner pubkey
         + 4 + 64                    // did string
+        + 4 + 64                    // name string
         + 4 + 128                   // public_key_hex
         + 4 + 32                    // device_type
         + 4 + 64                    // location

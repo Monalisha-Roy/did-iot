@@ -29,10 +29,9 @@ export default function Home() {
   const [registering, setRegistering] = useState(false);
   const [registerResult, setRegisterResult] = useState<string | null>(null);
   const [form, setForm] = useState({
-    name: "",
     device_type: "temperature",
     location: "",
-    mac: "",
+    public_key: "",
   });
 
   useEffect(() => {
@@ -68,21 +67,17 @@ export default function Home() {
   };
 
   const revoke = async (did: string) => {
-    await fetch(`http://localhost:8001/revoke/${encodeURIComponent(did)}`, {
+    await fetch(`http://localhost:8001/revoke-onchain/${encodeURIComponent(did)}`, {
       method: "POST",
     });
-    setDevices((prev) =>
-      prev.map((d) => (d.did === did ? { ...d, status: "revoked" } : d))
-    );
+    fetchDevices();
   };
 
   const verify = async (did: string) => {
-    await fetch(`http://localhost:8001/verify/${encodeURIComponent(did)}`, {
+    await fetch(`http://localhost:8001/verify-onchain/${encodeURIComponent(did)}`, {
       method: "POST",
     });
-    setDevices((prev) =>
-      prev.map((d) => (d.did === did ? { ...d, status: "verified" } : d))
-    );
+    fetchDevices();
   };
 
   const handleRegister = async () => {
@@ -98,7 +93,7 @@ export default function Home() {
       if (data.success) {
         setRegisterResult(`✅ Device registered! DID: ${data.did}`);
         fetchDevices();
-        setForm({ name: "", device_type: "temperature", location: "", mac: "" });
+        setForm({ device_type: "temperature", location: "", public_key: "" });
       } else {
         setRegisterResult(`❌ Error: ${data.error}`);
       }
@@ -141,16 +136,7 @@ export default function Home() {
             Register New IoT Device
           </h2>
           <div className="grid grid-cols-4 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-gray-900 bg-white mb-1 block">Device Name</label>
-              <input
-                style={{ color: '#111827', backgroundColor: '#ffffff' }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-black bg-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-400"
-                placeholder="e.g. Temp Sensor B"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
+            
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Device Type</label>
               <select
@@ -174,15 +160,7 @@ export default function Home() {
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
               />
             </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">MAC Address</label>
-              <input
-                className="w-full border border-gray-200 text-black bg-white rounded-lg px-3 py-2 placeholder-gray-600 text-sm focus:outline-none focus:border-blue-400"
-                placeholder="e.g. 70:4b:ca:47:46:94"
-                value={form.mac}
-                onChange={(e) => setForm({ ...form, mac: e.target.value })}
-              />
-            </div>
+            
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -236,11 +214,10 @@ export default function Home() {
             <div
               key={d.did}
               onClick={() => setSelected(selected === d.did ? null : d.did)}
-              className={`border rounded-lg p-3 mb-2 cursor-pointer transition-all ${
-                selected === d.did
+              className={`border rounded-lg p-3 mb-2 cursor-pointer transition-all ${selected === d.did
                   ? "border-blue-400 bg-blue-50"
                   : "border-gray-100 hover:bg-gray-50"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-medium text-sm text-gray-800">{d.name}</span>
@@ -301,9 +278,8 @@ export default function Home() {
               filteredFeed.map((p, i) => (
                 <div
                   key={i}
-                  className={`grid grid-cols-5 gap-2 text-xs py-2 border-b border-gray-50 items-start ${
-                    p.status !== "verified" ? "bg-red-50" : ""
-                  }`}
+                  className={`grid grid-cols-5 gap-2 text-xs py-2 border-b border-gray-50 items-start ${p.status !== "verified" ? "bg-red-50" : ""
+                    }`}
                 >
                   <span className="text-gray-400 font-mono">
                     {new Date(p.timestamp * 1000).toLocaleTimeString()}

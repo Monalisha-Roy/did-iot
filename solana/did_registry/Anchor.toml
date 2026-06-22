@@ -6,7 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-did_registry = "B3gYy9xnAUiU3qW9seVVUgZ6kSWzz7ePibCSXbsJK9eq"
+did_registry = "8NXipim1BqhH9rKdsqHsYj7dh1YLLjYrt9vpkxL8rJEN"
+
+[programs.devnet]
+did_registry = "8NXipim1BqhH9rKdsqHsYj7dh1YLLjYrt9vpkxL8rJEN"
 
 [registry]
 url = "https://api.apr.dev"
