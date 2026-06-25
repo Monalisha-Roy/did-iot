@@ -38,6 +38,13 @@ export default function Home() {
     fetchDevices();
   }, []);
 
+  useEffect(() => {
+    fetch("http://localhost:8001/packet-count")
+      .then((r) => r.json())
+      .then((data) => setPacketCount(data.count))
+      .catch((e) => console.error("Failed to fetch packet count:", e));
+  }, []);
+
   const fetchDevices = () => {
     fetch("http://localhost:8001/devices")
       .then((r) => r.json())
@@ -135,8 +142,8 @@ export default function Home() {
           <h2 className="text-sm font-semibold text-gray-700 mb-4">
             Register New IoT Device
           </h2>
-          <div className="grid grid-cols-4 gap-3 mb-3">
-            
+          <div className="grid grid-cols-3 gap-3 mb-3">
+
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Device Type</label>
               <select
@@ -148,7 +155,7 @@ export default function Home() {
                 <option value="humidity">Humidity</option>
                 <option value="co2">CO2</option>
                 <option value="soil">Soil Moisture</option>
-                <option value="aerial">Aerial/Drone</option>
+                <option value="pressure">Pressure/Temperature (BMP280)</option>
               </select>
             </div>
             <div>
@@ -160,7 +167,17 @@ export default function Home() {
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
               />
             </div>
-            
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Public Key</label>
+              <input
+                style={{ color: '#111827', backgroundColor: '#ffffff' }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400"
+                placeholder="Paste ESP32 public key here"
+                value={form.public_key}
+                onChange={(e) => setForm({ ...form, public_key: e.target.value })}
+              />
+            </div>
+
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -181,7 +198,7 @@ export default function Home() {
             )}
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            DID will be auto-generated from MAC address. Device starts as Pending until admin verifies.
+            Copy the Public Key from the ESP32 boot output. DID is auto-generated from it.
           </p>
         </div>
       )}
@@ -215,8 +232,8 @@ export default function Home() {
               key={d.did}
               onClick={() => setSelected(selected === d.did ? null : d.did)}
               className={`border rounded-lg p-3 mb-2 cursor-pointer transition-all ${selected === d.did
-                  ? "border-blue-400 bg-blue-50"
-                  : "border-gray-100 hover:bg-gray-50"
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-100 hover:bg-gray-50"
                 }`}
             >
               <div className="flex items-center justify-between mb-1">
@@ -262,7 +279,7 @@ export default function Home() {
               ? `Filtering: ${selected}`
               : "Showing all devices — click a device to filter"}
           </p>
-          <div className="grid grid-cols-5 gap-2 text-xs font-semibold text-gray-400 border-b pb-2 mb-1">
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 130px 1fr 80px 90px', gap: '8px' }} className="text-xs font-semibold text-gray-400 border-b pb-2 mb-1">
             <span>Time</span>
             <span>Device</span>
             <span>Value</span>
@@ -278,24 +295,24 @@ export default function Home() {
               filteredFeed.map((p, i) => (
                 <div
                   key={i}
-                  className={`grid grid-cols-5 gap-2 text-xs py-2 border-b border-gray-50 items-start ${p.status !== "verified" ? "bg-red-50" : ""
-                    }`}
+                  style={{ display: 'grid', gridTemplateColumns: '90px 130px 1fr 80px 90px', gap: '8px' }}
+                  className={`text-xs py-2 border-b border-gray-50 items-center ${p.status !== "verified" ? "bg-red-50" : ""}`}
                 >
                   <span className="text-gray-400 font-mono">
-                    {new Date(p.timestamp * 1000).toLocaleTimeString()}
+                    {new Date(p.timestamp * 1000).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}
                   </span>
-                  <div>
-                    <div className="font-medium text-gray-700">{p.device_name}</div>
-                    <div className="text-gray-400 font-mono text-xs truncate">{p.did}</div>
+                  <div className="overflow-hidden">
+                    <div className="font-mono text-gray-600 truncate text-xs">{p.did.slice(0, 18)}...</div>
+                    <div className="text-gray-400 text-xs">{p.device_type}</div>
                   </div>
-                  <span className={`font-semibold ${p.status === "verified" ? "text-gray-800" : "text-red-500"}`}>
+                  <span className={`font-semibold truncate ${p.status === "verified" ? "text-gray-800" : "text-red-500"}`}>
                     {p.value}
                   </span>
-                  <span className="font-mono text-gray-400">{p.hash}</span>
+                  <span className="font-mono text-gray-400 truncate">{p.hash}</span>
                   <span>
                     {p.ipfs_url ? (
                       <a href={p.ipfs_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline font-mono">
-                        {p.cid?.slice(0, 10)}...
+                        {p.cid?.slice(0, 8)}...
                       </a>
                     ) : (
                       <span className="text-red-400">—</span>

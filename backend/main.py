@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.websockets import WebSocket
@@ -8,7 +9,6 @@ import os
 import time
 from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
-from pydantic import BaseModel
 from solana_client import generate_did, register_device_onchain, verify_device_onchain, revoke_device_onchain, get_device_onchain, get_all_devices_onchain
 load_dotenv()
 
@@ -77,7 +77,7 @@ async def process_message_async(payload_str: str):
         did = payload.get("did")
         value = payload.get("value")
         unit = payload.get("unit", "")
-        timestamp = payload.get("timestamp", int(time.time()))
+        timestamp = int(time.time()) 
 
         # Fetch device status directly from Solana
         chain_data = await get_device_onchain(did)
@@ -98,10 +98,17 @@ async def process_message_async(payload_str: str):
             "timestamp": timestamp,
             "location": chain_data["location"],
         }
+
+        # Add extra fields if present
+        if "pressure" in payload:
+            pinata_payload["pressure"] = payload.get("pressure")
+        if "humidity" in payload:
+            pinata_payload["humidity"] = payload.get("humidity")
         cid = await upload_to_pinata(pinata_payload)
 
         packet = {
             "did": did,
+            "device_name": did,  # add this line
             "device_type": chain_data["type"],
             "value": f"{value} {unit}".strip(),
             "timestamp": timestamp,
@@ -110,6 +117,9 @@ async def process_message_async(payload_str: str):
             "cid": cid,
             "ipfs_url": f"https://gateway.pinata.cloud/ipfs/{cid}" if cid else None,
         }
+
+        if "pressure" in payload:
+            packet["value"] = f"{value}°C / {payload.get('pressure')}hPa"
 
         print(f"[ACCEPTED] {did}: {packet['value']} | CID: {cid}")
         await broadcast(packet)
@@ -191,3 +201,18 @@ async def websocket_endpoint(websocket: WebSocket):
     except:
         ws_clients.remove(websocket)
         print(f"[WS] Client disconnected. Total: {len(ws_clients)}")
+
+@app.get("/packet-count")
+async def get_packet_count():
+    headers = {
+        "Authorization": f"Bearer {PINATA_JWT}",
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.pinata.cloud/data/pinList?status=pinned&metadata[name]=iot-data",
+            headers=headers,
+            timeout=15,
+        )
+        result = response.json()
+        count = result.get("count", 0)
+        return {"count": count}
